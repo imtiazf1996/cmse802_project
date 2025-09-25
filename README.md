@@ -8,7 +8,9 @@ The goal is to apply computational modeling methods from CMSE 802, including dat
 - Implement a baseline linear regression model for price prediction.  
 - Train advanced supervised ML models (Random Forest, Gradient Boosting) and compare performance.  
 - Create interactive visualizations (Plotly) to show price depreciation vs. year and mileage.  
-- Ensure reproducibility with GitHub, CLI workflows, and testing.  
+- Ensure reproducibility with GitHub, CLI workflows, and testing.
+## Folder Structure
+```
 cmse802_project/
 ├── data/
 │ ├── raw/ # raw CSVs (ignored in git)
@@ -23,3 +25,11 @@ cmse802_project/
 ├── requirements.txt # Python dependencies
 ├── .gitignore
 └── README.md
+```
+Scripts can be run individually
+
+python src/data_clean.py
+python src/eda.py
+python src/train_regress.py
+python src/train_ml.py
+python src/evaluate.py
