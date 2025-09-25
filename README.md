@@ -28,8 +28,8 @@ cmse802_project/
 ```
 Scripts can be run individually
 
-python src/data_clean.py
-python src/eda.py
-python src/train_regress.py
-python src/train_ml.py
+python src/data_clean.py<br>
+python src/eda.py<br>
+python src/train_regress.py<br>
+python src/train_ml.py<br>
 python src/evaluate.py
