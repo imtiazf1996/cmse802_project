@@ -4,7 +4,7 @@ import pandas as pd
 st.set_page_config(page_title="Car Price Predictor", page_icon="🚗", layout="wide")
 st.title("Car Price Predictor")
 
-st.write("Upload a CSV to preview it. We’ll wire the model next.")
+st.write("Upload a CSV to preview it. This is Fawaz")
 
 file = st.file_uploader("Upload CSV", type=["csv"])
 if file:
