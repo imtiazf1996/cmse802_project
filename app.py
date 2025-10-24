@@ -167,21 +167,24 @@ with t5:
 # ---- T6: time trend (monthly) ----
 with t6:
     if "posting_date" in df_f.columns:
-        # Coerce again here in case something snuck through as string
-        pd_col = pd.to_datetime(df_f["posting_date"], errors="coerce")
+        pd_col = df_f["posting_date"]
 
         if pd_col.notna().any():
-            month = pd_col.dt.to_period("M").astype(str)
-            trend = (df_f.assign(month=month)
-                        .groupby("month", as_index=False)["price"].median()
-                        .sort_values("month"))
-            fig = px.line(trend, x="month", y="price", markers=True,
+            month = pd_col.dt.to_period("M")
+            trend = (
+                df_f.assign(month=month)
+                    .groupby("month", as_index=False)["price"].median()
+            )
+            trend["month_ts"] = trend["month"].dt.to_timestamp()
+            trend = trend.sort_values("month_ts")
+
+            fig = px.line(trend, x="month_ts", y="price", markers=True,
                           title="Median Price Trend (by posting month)")
-            fig.update_xaxes(tickangle=45)
+            fig.update_xaxes(tickangle=45, title="Month")
             st.plotly_chart(fig, use_container_width=True)
-            st.caption("Use this to later build a simple time-aware model or seasonal adjustment.")
+            st.caption("Time trend uses cleaned `posting_date` parsed in src/data_clean.py.")
         else:
-            st.info("`posting_date` exists but contains no valid dates after parsing.")
+            st.info("`posting_date` exists but contains no valid dates after cleaning.")
     else:
         st.info("No `posting_date` column found; skipping time trend.")
 
