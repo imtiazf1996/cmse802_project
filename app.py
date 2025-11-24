@@ -1,14 +1,14 @@
 # app.py
 import os
-import io
+import json
 
-import numpy as np
 import pandas as pd
 import streamlit as st
 import plotly.express as px
 import joblib
 
 from src.data_clean import load_data, clean_data
+from src.features import assemble_feature_frame
 
 # -----------------------------------------------------------------------------
 # Page config
@@ -20,478 +20,254 @@ st.set_page_config(
 )
 
 st.title("🚗 Used Car Price — EDA & Gradient Boosting Prediction")
-st.caption(
-    "Interactive dashboard for exploring the vehicles dataset and predicting "
-    "prices with a trained Gradient Boosting Regressor (GBR)."
-)
-
-# -----------------------------------------------------------------------------
-# Sidebar: data source + global filters
-# -----------------------------------------------------------------------------
-with st.sidebar:
-    st.header("Data Source")
-    default_path = "vehicles.csv"
-    csv_path = st.text_input("CSV path in repo", value=default_path)
-    uploaded = st.file_uploader("…or upload CSV", type=["csv"])
-
-    st.divider()
-    st.header("Filters")
-
-    price_min, price_max = st.slider(
-        "Price range",
-        0,
-        150_000,
-        (1_000, 80_000),
-        step=500,
-    )
-
-    year_min, year_max = st.slider(
-        "Model year",
-        1970,
-        2025,
-        (2000, 2024),
-        step=1,
-    )
-
-    odo_min, odo_max = st.slider(
-        "Mileage (mi)",
-        0,
-        500_000,
-        (0, 250_000),
-        step=5_000,
-    )
-
-    st.divider()
-    sample_n = st.number_input(
-        "Sample rows for plotting (speed)",
-        min_value=1_000,
-        max_value=200_000,
-        value=25_000,
-        step=1_000,
-        help="Plots use a random sample when the filtered dataset is large.",
-    )
 
 
 # -----------------------------------------------------------------------------
-# Cached helpers
+# Data + model loading helpers
 # -----------------------------------------------------------------------------
+DATA_PATH = "vehicles.csv"
+MODEL_PATH = "results/gbr/best_model.joblib"
+TEST_METRICS_PATH = "results/gbr/test_metrics.json"
+
+
 @st.cache_data(show_spinner=True)
-def _load_and_clean(buffer_or_path):
-    raw = load_data(buffer_or_path)
+def get_clean_data(path: str) -> pd.DataFrame:
+    raw = load_data(path)
     clean = clean_data(raw)
-    return raw, clean
+    return clean
 
 
 @st.cache_resource(show_spinner=True)
-def _load_model(model_path: str = "results/gbr/best_model.joblib"):
-    if not os.path.exists(model_path):
+def get_model(path: str):
+    if not os.path.exists(path):
         return None
-    return joblib.load(model_path)
+    return joblib.load(path)
+
+
+@st.cache_data(show_spinner=True)
+def get_test_metrics(path: str):
+    if not os.path.exists(path):
+        return None
+    with open(path, "r") as f:
+        return json.load(f)
 
 
 # -----------------------------------------------------------------------------
 # Load data
 # -----------------------------------------------------------------------------
-buffer_or_path: io.BytesIO | str
-if uploaded is not None:
-    buffer_or_path = uploaded
-elif os.path.exists(csv_path):
-    buffer_or_path = csv_path
-else:
-    st.error(
-        "CSV not found. Provide a valid path (e.g. `vehicles.csv`) or upload the file."
-    )
+if not os.path.exists(DATA_PATH):
+    st.error(f"Could not find `{DATA_PATH}` in the repo. Please add it.")
     st.stop()
 
-with st.spinner("Loading and cleaning data…"):
-    df_raw, df = _load_and_clean(buffer_or_path)
+df = get_clean_data(DATA_PATH)
 
 if df.empty:
-    st.error("Cleaned dataframe is empty after processing. Check cleaning rules.")
+    st.error("Cleaned dataset is empty after processing. Check cleaning rules.")
     st.stop()
 
-# -----------------------------------------------------------------------------
-# Sidebar: category filters that depend on data
-# -----------------------------------------------------------------------------
-with st.sidebar:
-    st.subheader("Categorical filters")
-
-    manu_opts = ["(All)"] + sorted(
-        df["manufacturer"].dropna().unique().tolist()
-    ) if "manufacturer" in df.columns else ["(All)"]
-    manu_sel = st.selectbox("Manufacturer", manu_opts, index=0)
-
-    state_opts = ["(All)"] + sorted(
-        df["state"].dropna().unique().tolist()
-    ) if "state" in df.columns else ["(All)"]
-    state_sel = st.selectbox("State", state_opts, index=0)
-
-    type_opts = ["(All)"] + sorted(
-        df["type"].dropna().unique().tolist()
-    ) if "type" in df.columns else ["(All)"]
-    type_sel = st.selectbox("Body type", type_opts, index=0)
-
+# Quick info
+st.write(f"Cleaned dataset loaded with **{len(df):,} rows** and **{df.shape[1]} columns**.")
 
 # -----------------------------------------------------------------------------
-# Apply global filters
+# Tabs
 # -----------------------------------------------------------------------------
-mask = pd.Series(True, index=df.index)
-
-if "price" in df.columns:
-    mask &= df["price"].between(price_min, price_max)
-
-if "year" in df.columns:
-    mask &= df["year"].between(year_min, year_max)
-
-if "odometer" in df.columns:
-    mask &= df["odometer"].between(odo_min, odo_max)
-
-if "manufacturer" in df.columns and manu_sel != "(All)":
-    mask &= df["manufacturer"].eq(manu_sel)
-
-if "state" in df.columns and state_sel != "(All)":
-    mask &= df["state"].eq(state_sel)
-
-if "type" in df.columns and type_sel != "(All)":
-    mask &= df["type"].eq(type_sel)
-
-df_f = df.loc[mask].copy()
-
-if df_f.empty:
-    st.warning("No rows match the filters. Try relaxing them.")
-    st.stop()
-
-# Optional downsample for plots
-if len(df_f) > sample_n:
-    df_plot = df_f.sample(sample_n, random_state=42)
-else:
-    df_plot = df_f
-
-
-# -----------------------------------------------------------------------------
-# Top-level metrics
-# -----------------------------------------------------------------------------
-k1, k2, k3, k4, k5 = st.columns(5)
-k1.metric("Rows (clean, filtered)", f"{len(df_f):,}")
-if "price" in df_f.columns:
-    k2.metric("Median price", f"${df_f['price'].median():,.0f}")
-if "year" in df_f.columns:
-    k3.metric("Median year", int(df_f["year"].median()))
-if "odometer" in df_f.columns:
-    k4.metric("Median mileage", f"{int(df_f['odometer'].median()):,} mi")
-if "manufacturer" in df_f.columns:
-    k5.metric("Manufacturers", df_f["manufacturer"].nunique())
-
-
-# -----------------------------------------------------------------------------
-# Tabs layout
-# -----------------------------------------------------------------------------
-tabs = st.tabs(
-    [
-        "Dataset & Summary",
-        "Distributions",
-        "Price Relationships",
-        "Manufacturers & States",
-        "Time Trend",
-        "GBR Price Prediction",
-    ]
+tab_data, tab_eda, tab_metrics, tab_predict = st.tabs(
+    ["Dataset", "EDA plots", "Model performance", "Price prediction"]
 )
 
 # -----------------------------------------------------------------------------
-# Tab 0: Dataset & summary
+# 1. Dataset tab
 # -----------------------------------------------------------------------------
-with tabs[0]:
-    st.subheader("Preview of cleaned data")
-    st.dataframe(df_f.head(20), use_container_width=True)
+with tab_data:
+    st.subheader("Cleaned dataset preview")
 
-    st.subheader("Summary statistics")
-    cols_for_desc = [c for c in ["price", "year", "odometer"] if c in df_f.columns]
-    if cols_for_desc:
-        st.write(df_f[cols_for_desc].describe())
+    if st.button("View cleaned data"):
+        st.dataframe(df.head(100), use_container_width=True)
+        st.caption("Showing first 100 rows of the cleaned dataset.")
     else:
-        st.info("No numeric columns `price`, `year`, or `odometer` found for summary.")
+        st.info("Click **View cleaned data** to show a preview.")
 
-    st.subheader("NaN counts (after cleaning & filtering)")
-    na = df_f.isna().sum().sort_values(ascending=False)
-    st.write(na[na > 0])
+    st.markdown("**Basic stats (price, year, mileage):**")
+    cols = [c for c in ["price", "year", "odometer"] if c in df.columns]
+    if cols:
+        st.write(df[cols].describe())
+    else:
+        st.info("No `price`, `year`, or `odometer` columns found.")
 
-    st.divider()
-    st.download_button(
-        "⬇️ Download filtered dataset (CSV)",
-        data=df_f.to_csv(index=False).encode("utf-8"),
-        file_name="vehicles_filtered.csv",
-        mime="text/csv",
+
+# -----------------------------------------------------------------------------
+# 2. EDA plots tab
+# -----------------------------------------------------------------------------
+with tab_eda:
+    st.subheader("Exploratory plots")
+
+    plot_type = st.selectbox(
+        "Choose a plot",
+        [
+            "Price distribution",
+            "Mileage distribution",
+            "Price vs year",
+            "Price vs mileage",
+            "Price by manufacturer (top 10)",
+        ],
     )
 
-
-# -----------------------------------------------------------------------------
-# Tab 1: Distributions
-# -----------------------------------------------------------------------------
-with tabs[1]:
-    st.subheader("Distributions")
-
-    c1, c2 = st.columns(2)
-
-    if "price" in df_f.columns:
-        with c1:
-            fig = px.histogram(
-                df_f,
-                x="price",
-                nbins=60,
-                title="Price distribution",
-            )
-            fig.update_layout(margin=dict(l=10, r=10, t=40, b=10))
+    if plot_type == "Price distribution":
+        if "price" in df.columns:
+            fig = px.histogram(df, x="price", nbins=60, title="Price distribution")
             st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("No `price` column found in data.")
 
-    if "odometer" in df_f.columns:
-        with c2:
-            fig = px.histogram(
-                df_f,
-                x="odometer",
-                nbins=60,
-                title="Mileage distribution",
-            )
-            fig.update_layout(margin=dict(l=10, r=10, t=40, b=10))
+    elif plot_type == "Mileage distribution":
+        if "odometer" in df.columns:
+            fig = px.histogram(df, x="odometer", nbins=60, title="Mileage distribution")
             st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("No `odometer` column found in data.")
 
-
-# -----------------------------------------------------------------------------
-# Tab 2: Price relationships
-# -----------------------------------------------------------------------------
-with tabs[2]:
-    st.subheader("Price relationships")
-
-    c1, c2 = st.columns(2)
-
-    if {"year", "price"}.issubset(df_plot.columns):
-        with c1:
-            color_col = "manufacturer" if "manufacturer" in df_plot.columns else None
+    elif plot_type == "Price vs year":
+        if {"price", "year"}.issubset(df.columns):
             fig = px.scatter(
-                df_plot,
+                df,
                 x="year",
                 y="price",
-                opacity=0.35,
-                color=color_col,
-                title="Price vs. year",
-                hover_data=[c for c in ["manufacturer", "model", "odometer", "state"] if c in df_plot.columns],
+                opacity=0.4,
+                title="Price vs year",
+                hover_data=[c for c in ["manufacturer", "model", "odometer"] if c in df.columns],
             )
             st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("Need both `price` and `year` columns for this plot.")
 
-    if {"odometer", "price"}.issubset(df_plot.columns):
-        with c2:
-            color_col = "manufacturer" if "manufacturer" in df_plot.columns else None
+    elif plot_type == "Price vs mileage":
+        if {"price", "odometer"}.issubset(df.columns):
             fig = px.scatter(
-                df_plot,
+                df,
                 x="odometer",
                 y="price",
-                opacity=0.35,
-                color=color_col,
-                title="Price vs. mileage",
-                hover_data=[c for c in ["manufacturer", "model", "year", "state"] if c in df_plot.columns],
+                opacity=0.4,
+                title="Price vs mileage",
+                hover_data=[c for c in ["manufacturer", "model", "year"] if c in df.columns],
             )
             st.plotly_chart(fig, use_container_width=True)
-
-
-# -----------------------------------------------------------------------------
-# Tab 3: Manufacturers & States
-# -----------------------------------------------------------------------------
-with tabs[3]:
-    st.subheader("Manufacturers & geographic patterns")
-    c1, c2 = st.columns(2)
-
-    # Box plot by manufacturer
-    if "manufacturer" in df_f.columns and "price" in df_f.columns:
-        with c1:
-            top_manu = df_f["manufacturer"].value_counts().head(15).index
-            manu_df = df_f[df_f["manufacturer"].isin(top_manu)]
-            if not manu_df.empty:
-                fig = px.box(
-                    manu_df,
-                    x="manufacturer",
-                    y="price",
-                    points="outliers",
-                    title="Price by manufacturer (top 15 by count)",
-                )
-                fig.update_layout(xaxis_tickangle=-45)
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("Not enough variety for manufacturer plot with current filters.")
-
-    # Median price by state
-    if "state" in df_f.columns and "price" in df_f.columns:
-        with c2:
-            med_state = (
-                df_f.groupby("state", as_index=False)["price"]
-                .median()
-                .sort_values("price", ascending=False)
-                .head(20)
-            )
-            if not med_state.empty:
-                fig = px.bar(
-                    med_state,
-                    x="state",
-                    y="price",
-                    title="Median price by state (top 20)",
-                )
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("Not enough state variation for this plot.")
-
-
-# -----------------------------------------------------------------------------
-# Tab 4: Time trend
-# -----------------------------------------------------------------------------
-with tabs[4]:
-    st.subheader("Price trend over time")
-
-    if "posting_date" in df_f.columns:
-        pd_col = df_f["posting_date"]
-        if pd_col.notna().any():
-            month = pd_col.dt.to_period("M")
-            trend = (
-                df_f.assign(month=month)
-                .groupby("month", as_index=False)["price"]
-                .median()
-            )
-            if not trend.empty:
-                trend["month_ts"] = trend["month"].dt.to_timestamp()
-                trend = trend.sort_values("month_ts")
-
-                fig = px.line(
-                    trend,
-                    x="month_ts",
-                    y="price",
-                    markers=True,
-                    title="Median price over posting month",
-                )
-                fig.update_xaxes(title="Month", tickangle=45)
-                st.plotly_chart(fig, use_container_width=True)
-                st.caption(
-                    "Time trend uses cleaned `posting_date` parsed in `src/data_clean.py`."
-                )
-            else:
-                st.info("No valid price data for time trend after grouping.")
         else:
-            st.info("`posting_date` exists but has no valid dates after cleaning.")
+            st.warning("Need both `price` and `odometer` columns for this plot.")
+
+    elif plot_type == "Price by manufacturer (top 10)":
+        if {"manufacturer", "price"}.issubset(df.columns):
+            top_manu = df["manufacturer"].value_counts().head(10).index
+            manu_df = df[df["manufacturer"].isin(top_manu)]
+            fig = px.box(
+                manu_df,
+                x="manufacturer",
+                y="price",
+                title="Price by manufacturer (top 10 by count)",
+            )
+            fig.update_layout(xaxis_tickangle=-45)
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("Need `manufacturer` and `price` columns for this plot.")
+
+
+# -----------------------------------------------------------------------------
+# 3. Model performance tab
+# -----------------------------------------------------------------------------
+with tab_metrics:
+    st.subheader("Model performance (GBR)")
+
+    metrics = get_test_metrics(TEST_METRICS_PATH)
+    if metrics is None:
+        st.warning(
+            f"Could not find test metrics file at `{TEST_METRICS_PATH}`.\n"
+            "Save your GBR evaluation metrics there as JSON to see them here."
+        )
     else:
-        st.info("No `posting_date` column found; skipping time trend.")
+        st.markdown("**Raw metrics (from JSON):**")
+        st.json(metrics)
+
+        # Try to plot all numeric metrics as a simple bar chart
+        num_items = {k: v for k, v in metrics.items() if isinstance(v, (int, float))}
+        if num_items:
+            mdf = pd.DataFrame(
+                {"metric": list(num_items.keys()), "value": list(num_items.values())}
+            )
+            fig = px.bar(mdf, x="metric", y="value", title="Numeric metrics")
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No numeric metrics found to plot.")
 
 
 # -----------------------------------------------------------------------------
-# Tab 5: GBR Price Prediction
+# 4. Price prediction tab
 # -----------------------------------------------------------------------------
+with tab_predict:
+    st.subheader("Predict price with Gradient Boosting Regressor")
 
-with tabs[5]:
-    st.subheader("🔮 Gradient Boosting Price Prediction")
-
-    model = _load_model()
+    model = get_model(MODEL_PATH)
     if model is None:
         st.warning(
-            "GBR model file not found at `results/gbr/best_model.joblib`.\n\n"
-            "Train your model and save it to that path to enable prediction."
+            f"Could not load model from `{MODEL_PATH}`.\n"
+            "Train your GBR model and save it there as a joblib file."
         )
     else:
-        st.write(
-            "Use the controls below to describe a single vehicle, then click "
-            "**Predict price** to get the model’s estimate."
-        )
+        # Prepare value options from dataset
+        manu_list = sorted(df["manufacturer"].dropna().unique()) if "manufacturer" in df.columns else []
+        model_list = sorted(df["model"].dropna().unique()) if "model" in df.columns else []
 
-        # Build category options from filtered data (for realistic values)
-        manu_list = sorted(df_f["manufacturer"].dropna().unique()) if "manufacturer" in df_f.columns else []
-        model_list = sorted(df_f["model"].dropna().unique()) if "model" in df_f.columns else []
-        state_list = sorted(df_f["state"].dropna().unique()) if "state" in df_f.columns else []
-        fuel_list = sorted(df_f["fuel"].dropna().unique()) if "fuel" in df_f.columns else []
-        trans_list = sorted(df_f["transmission"].dropna().unique()) if "transmission" in df_f.columns else []
-        type_list = sorted(df_f["type"].dropna().unique()) if "type" in df_f.columns else []
+        col1, col2 = st.columns(2)
 
-        with st.form("prediction_form"):
-            c1, c2 = st.columns(2)
+        with col1:
+            year_in = st.number_input(
+                "Model year",
+                min_value=1970,
+                max_value=2025,
+                value=int(df["year"].median()) if "year" in df.columns else 2015,
+            )
+            mileage_in = st.number_input(
+                "Mileage (mi)",
+                min_value=0,
+                max_value=500_000,
+                value=int(df["odometer"].median()) if "odometer" in df.columns else 80_000,
+                step=1_000,
+            )
 
-            with c1:
-                year_in = st.number_input(
-                    "Model year",
-                    min_value=1970,
-                    max_value=2025,
-                    value=int(df_f["year"].median()) if "year" in df_f.columns else 2015,
-                )
-                odo_in = st.number_input(
-                    "Mileage (mi)",
-                    min_value=0,
-                    max_value=500_000,
-                    value=int(df_f["odometer"].median())
-                    if "odometer" in df_f.columns
-                    else 80_000,
-                    step=1_000,
-                )
-                price_hint = st.checkbox("Show reliability note", value=True)
+        with col2:
+            if manu_list:
+                manu_in = st.selectbox("Manufacturer", manu_list)
+            else:
+                manu_in = st.text_input("Manufacturer", "toyota")
 
-            with c2:
-                manu_in = (
-                    st.selectbox("Manufacturer", manu_list)
-                    if manu_list else st.text_input("Manufacturer", "toyota")
-                )
-                model_in = (
-                    st.selectbox("Model", model_list)
-                    if model_list else st.text_input("Model", "corolla")
-                )
-                state_in = (
-                    st.selectbox("State", state_list)
-                    if state_list else st.text_input("State (e.g. tx, ca, mi)", "mi")
-                )
+            if model_list:
+                model_in = st.selectbox("Model", model_list)
+            else:
+                model_in = st.text_input("Model", "corolla")
 
-            # Optional fields
-            extra_cats = st.expander("Optional details (fuel, transmission, body type)", expanded=False)
-            with extra_cats:
-                fuel_in = (
-                    st.selectbox("Fuel", fuel_list)
-                    if fuel_list else st.text_input("Fuel", "gas")
-                )
-                trans_in = (
-                    st.selectbox("Transmission", trans_list)
-                    if trans_list else st.text_input("Transmission", "automatic")
-                )
-                type_in = (
-                    st.selectbox("Body type", type_list)
-                    if type_list else st.text_input("Body type", "sedan")
-                )
-
-            submitted = st.form_submit_button("Predict price")
-
-        # 🔥 Correct indentation starts here
-        if submitted:
-            # Start from a template row with all columns
+        if st.button("Predict price"):
+            # Use a template row from the cleaned dataset so we have *all* columns
             base = df.iloc[[0]].copy()
 
-            # Overwrite user inputs
+            # Overwrite only the fields the user controls (if they exist)
             overrides = {
                 "year": year_in,
-                "odometer": odo_in,
+                "odometer": mileage_in,
                 "manufacturer": manu_in,
                 "model": model_in,
-                "state": state_in,
-                "fuel": fuel_in,
-                "transmission": trans_in,
-                "type": type_in,
             }
 
             for col, val in overrides.items():
                 if col in base.columns:
                     base[col] = val
 
-            # Restrict to exact training columns
-            feature_cols = getattr(model, "feature_names_in_", None)
-            if feature_cols is not None:
-                X = base[list(feature_cols)]
-            else:
-                X = base
+            # Recreate the engineered feature frame exactly as in training
+            X, _, _ = assemble_feature_frame(base, include_engineered=True)
 
             # Predict
             y_pred = model.predict(X)[0]
-
             st.success(f"Estimated price: **${y_pred:,.0f}**")
 
-            if price_hint:
-                st.caption(
-                    "This estimate is based on the training data distribution. "
-                    "Very unusual combinations of features may be less reliable."
-                )
+            st.caption(
+                "This estimate is based on the training data distribution. "
+                "Very unusual combinations of features (e.g. extremely low mileage "
+                "for a very old car) may be less reliable."
+            )
