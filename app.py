@@ -249,26 +249,50 @@ with tab_predict:
                 model_in = st.text_input("Model", "corolla")
 
         if st.button("Predict price"):
-    # 1) Start from a FULL FEATURE template row
-            row = X_template.iloc[[0]].copy()
+            # 1) What columns does the model expect?
+            try:
+                required_cols = list(model.feature_names_in_)
+            except AttributeError:
+                st.error("Model does not expose `feature_names_in_`. Was it trained on a DataFrame?")
+                st.stop()
         
-            # 2) Overwrite any original columns that still exist in the feature matrix
-            overrides = {
-                "year": year_in,
-                "odometer": mileage_in,
-                "manufacturer": manu_in,
-                "model": model_in,
-            }
+            # 2) Build a one-row DataFrame with exactly those columns
+            row = pd.DataFrame(index=[0], columns=required_cols)
         
-            for col, val in overrides.items():
-                if col in row.columns:
-                    row[col] = val
+            # 3) Fill with default values from your cleaned dataset
+            for col in required_cols:
+                if col in df.columns:
+                    series = df[col]
+                    if pd.api.types.is_numeric_dtype(series):
+                        # Use median for numeric columns
+                        row.loc[0, col] = series.median()
+                    else:
+                        # Use mode (most frequent) for categorical columns
+                        mode_vals = series.mode()
+                        if not mode_vals.empty:
+                            row.loc[0, col] = mode_vals.iloc[0]
+                        else:
+                            # fallback to first non-null value
+                            non_null = series.dropna()
+                            row.loc[0, col] = non_null.iloc[0] if not non_null.empty else None
+                else:
+                    # Column wasn't in df (very unlikely) -> safe default
+                    row.loc[0, col] = 0
         
-            # 3) Pass row directly to the trained pipeline
+            # 4) Overwrite with user inputs where applicable
+            if "year" in required_cols:
+                row.loc[0, "year"] = year_in
+            if "odometer" in required_cols:
+                row.loc[0, "odometer"] = mileage_in
+            if "manufacturer" in required_cols:
+                row.loc[0, "manufacturer"] = manu_in
+            if "model" in required_cols:
+                row.loc[0, "model"] = model_in
+        
+            # 5) Predict using the pipeline
             y_pred = model.predict(row)[0]
         
             st.success(f"Estimated price: **${y_pred:,.0f}**")
-        
             st.caption(
                 "This estimate is based on the training data distribution. "
                 "Very unusual combinations of features (e.g. extremely low mileage "
