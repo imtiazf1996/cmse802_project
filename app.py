@@ -9,7 +9,6 @@ import plotly.express as px
 import joblib
 
 from src.data_clean import load_data, clean_data
-from src.features import assemble_feature_frame
 
 # -----------------------------------------------------------------------------
 # Page config
@@ -465,9 +464,13 @@ with tabs[5]:
 
             submitted = st.form_submit_button("Predict price")
 
-        if submitted:
-            # Build a single-row DataFrame matching training columns as much as possible
-            raw_features = {
+         if submitted:
+            # Start from a template row so all columns expected by the pipeline exist
+            # Use a random row from the FULL cleaned dataframe (not filtered), to be safe
+            base = df.iloc[[0]].copy()
+
+            # Overwrite the fields the user controls
+            overrides = {
                 "year": year_in,
                 "odometer": odo_in,
                 "manufacturer": manu_in,
@@ -478,15 +481,28 @@ with tabs[5]:
                 "type": type_in,
             }
 
-            raw_df = pd.DataFrame([raw_features])
+            for col, val in overrides.items():
+                if col in base.columns:
+                    base[col] = val
 
-            # Use the same feature assembly as training
-            X, _, _ = assemble_feature_frame(raw_df, include_engineered=True)
+            # Restrict to the exact columns the pipeline was trained on, if available
+            feature_cols = getattr(model, "feature_names_in_", None)
+            if feature_cols is not None:
+                X = base[list(feature_cols)]
+            else:
+                # Fallback: pass all columns
+                X = base
 
+            # Predict
             y_pred = model.predict(X)[0]
 
             st.success(f"Estimated price: **${y_pred:,.0f}**")
 
+            if price_hint:
+                st.caption(
+                    "This estimate is based on the training data distribution. "
+                    "Very unusual feature combinations may be less reliable."
+                )
             if price_hint:
                 st.caption(
                     "This estimate is based on the training data distribution. "
