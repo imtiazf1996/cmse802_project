@@ -380,6 +380,7 @@ with tabs[4]:
 # -----------------------------------------------------------------------------
 # Tab 5: GBR Price Prediction
 # -----------------------------------------------------------------------------
+
 with tabs[5]:
     st.subheader("🔮 Gradient Boosting Price Prediction")
 
@@ -422,90 +423,75 @@ with tabs[5]:
                     else 80_000,
                     step=1_000,
                 )
-                price_hint = st.checkbox(
-                    "Show reliability note", value=True
-                )
+                price_hint = st.checkbox("Show reliability note", value=True)
 
             with c2:
                 manu_in = (
                     st.selectbox("Manufacturer", manu_list)
-                    if manu_list
-                    else st.text_input("Manufacturer", "toyota")
+                    if manu_list else st.text_input("Manufacturer", "toyota")
                 )
                 model_in = (
                     st.selectbox("Model", model_list)
-                    if model_list
-                    else st.text_input("Model", "corolla")
+                    if model_list else st.text_input("Model", "corolla")
                 )
                 state_in = (
                     st.selectbox("State", state_list)
-                    if state_list
-                    else st.text_input("State (e.g. tx, ca, mi)", "mi")
+                    if state_list else st.text_input("State (e.g. tx, ca, mi)", "mi")
                 )
 
-            # optional extra categorical features if present in training
+            # Optional fields
             extra_cats = st.expander("Optional details (fuel, transmission, body type)", expanded=False)
             with extra_cats:
                 fuel_in = (
                     st.selectbox("Fuel", fuel_list)
-                    if fuel_list
-                    else st.text_input("Fuel", "gas")
+                    if fuel_list else st.text_input("Fuel", "gas")
                 )
                 trans_in = (
                     st.selectbox("Transmission", trans_list)
-                    if trans_list
-                    else st.text_input("Transmission", "automatic")
+                    if trans_list else st.text_input("Transmission", "automatic")
                 )
                 type_in = (
                     st.selectbox("Body type", type_list)
-                    if type_list
-                    else st.text_input("Body type", "sedan")
+                    if type_list else st.text_input("Body type", "sedan")
                 )
 
             submitted = st.form_submit_button("Predict price")
 
-             if submitted:
-            # Start from a template row so all columns expected by the pipeline exist
-            # Use a random row from the FULL cleaned dataframe (not filtered), to be safe
-                base = df.iloc[[0]].copy()
+        # 🔥 Correct indentation starts here
+        if submitted:
+            # Start from a template row with all columns
+            base = df.iloc[[0]].copy()
 
-            # Overwrite the fields the user controls
-                overrides = {
-                    "year": year_in,
-                    "odometer": odo_in,
-                    "manufacturer": manu_in,
-                    "model": model_in,
-                    "state": state_in,
-                    "fuel": fuel_in,
-                    "transmission": trans_in,
-                    "type": type_in,
-                }
-    
-                for col, val in overrides.items():
-                    if col in base.columns:
-                        base[col] = val
-    
-                # Restrict to the exact columns the pipeline was trained on, if available
-                feature_cols = getattr(model, "feature_names_in_", None)
-                if feature_cols is not None:
-                    X = base[list(feature_cols)]
-                else:
-                    # Fallback: pass all columns
-                    X = base
-    
-                # Predict
-                y_pred = model.predict(X)[0]
-    
-                st.success(f"Estimated price: **${y_pred:,.0f}**")
-    
-                if price_hint:
-                    st.caption(
-                        "This estimate is based on the training data distribution. "
-                        "Very unusual feature combinations may be less reliable."
-                    )
-                if price_hint:
-                    st.caption(
-                        "This estimate is based on the training data distribution. "
-                        "Very unusual combinations of features (e.g., extremely low "
-                        "mileage for a very old car) may be less reliable."
-                    )
+            # Overwrite user inputs
+            overrides = {
+                "year": year_in,
+                "odometer": odo_in,
+                "manufacturer": manu_in,
+                "model": model_in,
+                "state": state_in,
+                "fuel": fuel_in,
+                "transmission": trans_in,
+                "type": type_in,
+            }
+
+            for col, val in overrides.items():
+                if col in base.columns:
+                    base[col] = val
+
+            # Restrict to exact training columns
+            feature_cols = getattr(model, "feature_names_in_", None)
+            if feature_cols is not None:
+                X = base[list(feature_cols)]
+            else:
+                X = base
+
+            # Predict
+            y_pred = model.predict(X)[0]
+
+            st.success(f"Estimated price: **${y_pred:,.0f}**")
+
+            if price_hint:
+                st.caption(
+                    "This estimate is based on the training data distribution. "
+                    "Very unusual combinations of features may be less reliable."
+                )
