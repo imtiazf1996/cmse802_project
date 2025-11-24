@@ -216,9 +216,12 @@ with tab_predict:
             "Train your GBR model and save it there as a joblib file."
         )
     else:
-        # Prepare value options from dataset
-        manu_list = sorted(df["manufacturer"].dropna().unique()) if "manufacturer" in df.columns else []
-        model_list = sorted(df["model"].dropna().unique()) if "model" in df.columns else []
+        # All manufacturers available in dataset
+        manu_list = (
+            sorted(df["manufacturer"].dropna().unique())
+            if "manufacturer" in df.columns
+            else []
+        )
 
         col1, col2 = st.columns(2)
 
@@ -238,27 +241,49 @@ with tab_predict:
             )
 
         with col2:
+            # ---- Manufacturer ----
             if manu_list:
                 manu_in = st.selectbox("Manufacturer", manu_list)
             else:
                 manu_in = st.text_input("Manufacturer", "toyota")
 
-            if model_list:
-                model_in = st.selectbox("Model", model_list)
+            # ---- Model options depend on manufacturer ----
+            if (
+                "manufacturer" in df.columns
+                and "model" in df.columns
+                and manu_list
+            ):
+                mask = df["manufacturer"].eq(manu_in)
+                models_for_manu = sorted(
+                    df.loc[mask, "model"].dropna().unique()
+                )
+            else:
+                models_for_manu = (
+                    sorted(df["model"].dropna().unique())
+                    if "model" in df.columns
+                    else []
+                )
+
+            if models_for_manu:
+                model_in = st.selectbox("Model", models_for_manu)
             else:
                 model_in = st.text_input("Model", "corolla")
 
+        # ----------------- PREDICT BUTTON -----------------
         if st.button("Predict price"):
             # 1) What columns does the model expect?
             try:
                 required_cols = list(model.feature_names_in_)
             except AttributeError:
-                st.error("Model does not expose `feature_names_in_`. Was it trained on a DataFrame?")
+                st.error(
+                    "Model does not expose `feature_names_in_`. "
+                    "Was it trained on a pandas DataFrame?"
+                )
                 st.stop()
-        
+
             # 2) Build a one-row DataFrame with exactly those columns
             row = pd.DataFrame(index=[0], columns=required_cols)
-        
+
             # 3) Fill with default values from your cleaned dataset
             for col in required_cols:
                 if col in df.columns:
@@ -272,13 +297,14 @@ with tab_predict:
                         if not mode_vals.empty:
                             row.loc[0, col] = mode_vals.iloc[0]
                         else:
-                            # fallback to first non-null value
                             non_null = series.dropna()
-                            row.loc[0, col] = non_null.iloc[0] if not non_null.empty else None
+                            row.loc[0, col] = (
+                                non_null.iloc[0] if not non_null.empty else None
+                            )
                 else:
-                    # Column wasn't in df (very unlikely) -> safe default
+                    # Column not in df → safe default
                     row.loc[0, col] = 0
-        
+
             # 4) Overwrite with user inputs where applicable
             if "year" in required_cols:
                 row.loc[0, "year"] = year_in
@@ -288,13 +314,14 @@ with tab_predict:
                 row.loc[0, "manufacturer"] = manu_in
             if "model" in required_cols:
                 row.loc[0, "model"] = model_in
-        
+
             # 5) Predict using the pipeline
             y_pred = model.predict(row)[0]
-        
+
             st.success(f"Estimated price: **${y_pred:,.0f}**")
             st.caption(
                 "This estimate is based on the training data distribution. "
                 "Very unusual combinations of features (e.g. extremely low mileage "
                 "for a very old car) may be less reliable."
             )
+
