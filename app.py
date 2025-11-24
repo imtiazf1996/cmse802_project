@@ -464,48 +464,48 @@ with tabs[5]:
 
             submitted = st.form_submit_button("Predict price")
 
-         if submitted:
+             if submitted:
             # Start from a template row so all columns expected by the pipeline exist
             # Use a random row from the FULL cleaned dataframe (not filtered), to be safe
-            base = df.iloc[[0]].copy()
+                base = df.iloc[[0]].copy()
 
             # Overwrite the fields the user controls
-            overrides = {
-                "year": year_in,
-                "odometer": odo_in,
-                "manufacturer": manu_in,
-                "model": model_in,
-                "state": state_in,
-                "fuel": fuel_in,
-                "transmission": trans_in,
-                "type": type_in,
-            }
-
-            for col, val in overrides.items():
-                if col in base.columns:
-                    base[col] = val
-
-            # Restrict to the exact columns the pipeline was trained on, if available
-            feature_cols = getattr(model, "feature_names_in_", None)
-            if feature_cols is not None:
-                X = base[list(feature_cols)]
-            else:
-                # Fallback: pass all columns
-                X = base
-
-            # Predict
-            y_pred = model.predict(X)[0]
-
-            st.success(f"Estimated price: **${y_pred:,.0f}**")
-
-            if price_hint:
-                st.caption(
-                    "This estimate is based on the training data distribution. "
-                    "Very unusual feature combinations may be less reliable."
-                )
-            if price_hint:
-                st.caption(
-                    "This estimate is based on the training data distribution. "
-                    "Very unusual combinations of features (e.g., extremely low "
-                    "mileage for a very old car) may be less reliable."
-                )
+                overrides = {
+                    "year": year_in,
+                    "odometer": odo_in,
+                    "manufacturer": manu_in,
+                    "model": model_in,
+                    "state": state_in,
+                    "fuel": fuel_in,
+                    "transmission": trans_in,
+                    "type": type_in,
+                }
+    
+                for col, val in overrides.items():
+                    if col in base.columns:
+                        base[col] = val
+    
+                # Restrict to the exact columns the pipeline was trained on, if available
+                feature_cols = getattr(model, "feature_names_in_", None)
+                if feature_cols is not None:
+                    X = base[list(feature_cols)]
+                else:
+                    # Fallback: pass all columns
+                    X = base
+    
+                # Predict
+                y_pred = model.predict(X)[0]
+    
+                st.success(f"Estimated price: **${y_pred:,.0f}**")
+    
+                if price_hint:
+                    st.caption(
+                        "This estimate is based on the training data distribution. "
+                        "Very unusual feature combinations may be less reliable."
+                    )
+                if price_hint:
+                    st.caption(
+                        "This estimate is based on the training data distribution. "
+                        "Very unusual combinations of features (e.g., extremely low "
+                        "mileage for a very old car) may be less reliable."
+                    )
