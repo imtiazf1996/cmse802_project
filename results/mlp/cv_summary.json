@@ -1,0 +1,20 @@
+{
+  "model": "mlp",
+  "scoring": "neg_root_mean_squared_error",
+  "cv_splits": 5,
+  "cv_mean_score": -4657.670650322616,
+  "cv_std_score": 147.86271486806797,
+  "best_params": {
+    "est__learning_rate_init": 0.0003,
+    "est__hidden_layer_sizes": [
+      256,
+      128
+    ],
+    "est__batch_size": 128,
+    "est__alpha": 1e-05,
+    "est__activation": "relu"
+  },
+  "timestamp": "2025-11-20 12:29:09",
+  "use_pca": false,
+  "pca_components": null
+}

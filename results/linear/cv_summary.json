@@ -1,0 +1,11 @@
+{
+  "model": "linear",
+  "scoring": "neg_root_mean_squared_error",
+  "cv_splits": 5,
+  "cv_mean_score": -7097.686066155886,
+  "cv_std_score": 164.76659821294362,
+  "best_params": {},
+  "timestamp": "2025-11-20 12:09:24",
+  "use_pca": false,
+  "pca_components": null
+}

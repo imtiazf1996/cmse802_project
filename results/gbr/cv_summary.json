@@ -1,0 +1,11 @@
+{
+  "model": "gbr",
+  "scoring": "neg_root_mean_squared_error",
+  "cv_splits": 5,
+  "cv_mean_score": -3527.81830043803,
+  "cv_std_score": 54.72492027906818,
+  "best_params": {},
+  "timestamp": "2025-11-21 17:27:06",
+  "use_pca": false,
+  "pca_components": null
+}
