@@ -42,6 +42,12 @@ def get_model(path: str):
     if not os.path.exists(path):
         return None
     return joblib.load(path)
+    
+@st.cache_data(show_spinner=True)
+def get_feature_template(df: pd.DataFrame) -> pd.DataFrame:
+    """Build the full engineered feature matrix once, for use as a template."""
+    X, _, _ = assemble_feature_frame(df, include_engineered=True)
+    return X
 
 
 @st.cache_data(show_spinner=True)
@@ -64,6 +70,7 @@ df = get_clean_data(DATA_PATH)
 if df.empty:
     st.error("Cleaned dataset is empty after processing. Check cleaning rules.")
     st.stop()
+X_template = get_feature_template(df)
 
 # Quick info
 st.write(f"Cleaned dataset loaded with **{len(df):,} rows** and **{df.shape[1]} columns**.")
@@ -242,10 +249,10 @@ with tab_predict:
                 model_in = st.text_input("Model", "corolla")
 
         if st.button("Predict price"):
-            # 1) Start from a full template row (all columns exist)
-            base = df.iloc[[0]].copy()
+    # 1) Start from a FULL FEATURE template row
+            row = X_template.iloc[[0]].copy()
         
-            # 2) Overwrite only the fields the user controls
+            # 2) Overwrite any original columns that still exist in the feature matrix
             overrides = {
                 "year": year_in,
                 "odometer": mileage_in,
@@ -254,22 +261,14 @@ with tab_predict:
             }
         
             for col, val in overrides.items():
-                if col in base.columns:
-                    base[col] = val
+                if col in row.columns:
+                    row[col] = val
         
-            # 3) Restrict to EXACT columns the model was trained on
-            try:
-                required_cols = model.feature_names_in_
-                X = base[required_cols]
-            except:
-                X = base  # fallback
-        
-            # 4) Predict
-            y_pred = model.predict(X)[0]
+            # 3) Pass row directly to the trained pipeline
+            y_pred = model.predict(row)[0]
         
             st.success(f"Estimated price: **${y_pred:,.0f}**")
-
-
+        
             st.caption(
                 "This estimate is based on the training data distribution. "
                 "Very unusual combinations of features (e.g. extremely low mileage "
