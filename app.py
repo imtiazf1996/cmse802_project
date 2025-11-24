@@ -242,27 +242,33 @@ with tab_predict:
                 model_in = st.text_input("Model", "corolla")
 
         if st.button("Predict price"):
-            # Use a template row from the cleaned dataset so we have *all* columns
+            # 1) Start from a full template row (all columns exist)
             base = df.iloc[[0]].copy()
-
-            # Overwrite only the fields the user controls (if they exist)
+        
+            # 2) Overwrite only the fields the user controls
             overrides = {
                 "year": year_in,
                 "odometer": mileage_in,
                 "manufacturer": manu_in,
                 "model": model_in,
             }
-
+        
             for col, val in overrides.items():
                 if col in base.columns:
                     base[col] = val
-
-            # Recreate the engineered feature frame exactly as in training
-            X, _, _ = assemble_feature_frame(base, include_engineered=True)
-
-            # Predict
+        
+            # 3) Restrict to EXACT columns the model was trained on
+            try:
+                required_cols = model.feature_names_in_
+                X = base[required_cols]
+            except:
+                X = base  # fallback
+        
+            # 4) Predict
             y_pred = model.predict(X)[0]
+        
             st.success(f"Estimated price: **${y_pred:,.0f}**")
+
 
             st.caption(
                 "This estimate is based on the training data distribution. "
