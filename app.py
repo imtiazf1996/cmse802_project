@@ -176,6 +176,7 @@ with tab_eda:
 with tab_metrics:
     st.subheader("Model performance (GBR)")
 
+    # ---- Metrics from JSON ----
     metrics = get_test_metrics(TEST_METRICS_PATH)
     if metrics is None:
         st.warning(
@@ -183,10 +184,11 @@ with tab_metrics:
             "Save your GBR evaluation metrics there as JSON to see them here."
         )
     else:
+        st.markdown("### 📈 Test metrics")
         st.markdown("**Raw metrics (from JSON):**")
         st.json(metrics)
 
-        # Try to plot all numeric metrics as a simple bar chart
+        # Plot numeric metrics as a simple bar chart
         num_items = {k: v for k, v in metrics.items() if isinstance(v, (int, float))}
         if num_items:
             mdf = pd.DataFrame(
@@ -197,6 +199,39 @@ with tab_metrics:
         else:
             st.info("No numeric metrics found to plot.")
 
+    st.markdown("---")
+
+    # ---- Hyperparameters from the saved model ----
+    st.markdown("### ⚙️ Hyperparameters used")
+
+    model_obj = get_model(MODEL_PATH)
+    if model_obj is None:
+        st.warning(
+            f"Could not load model from `{MODEL_PATH}`.\n"
+            "Hyperparameters are only shown when the model file is available."
+        )
+    else:
+        # Get all parameters
+        all_params = model_obj.get_params()
+
+        # Try to extract only the estimator (GBR) params if using a pipeline
+        # Common pattern: final step named 'model' -> keys like 'model__n_estimators'
+        gbr_params = {
+            k.replace("model__", ""): v
+            for k, v in all_params.items()
+            if k.startswith("model__")
+        }
+
+        # Fallback: if that dict is empty, just show all params
+        if gbr_params:
+            display_params = gbr_params
+            st.caption("Showing hyperparameters for the GBR step (`model__*` in the pipeline).")
+        else:
+            display_params = all_params
+            st.caption("Could not detect a `model__` step; showing all model parameters.")
+
+        # Show nicely
+        st.json(display_params)
 
 # -----------------------------------------------------------------------------
 # 4. Price prediction tab
