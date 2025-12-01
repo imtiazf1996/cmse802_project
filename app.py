@@ -6,6 +6,7 @@ import pandas as pd
 import streamlit as st
 import plotly.express as px
 import joblib
+import streamlit.components.v1 as components
 
 from src.data_clean import load_data, clean_data
 from src.features import assemble_feature_frame
@@ -45,7 +46,6 @@ machine-learning pipeline for predicting used car prices from a Craigslist datas
 DATA_PATH = "vehicles.csv"
 MODEL_PATH = "results/gbr/best_model.joblib"
 TRAIN_TEST_METRICS_CSV = "results/gbr/train_test_metrics.csv"
-CV_LOGS_CSV = "results/all_cv_runs.csv"
 FI_CSV = "results/gbr/feature_importances.csv"
 
 PLOT_FILES = {
@@ -53,6 +53,19 @@ PLOT_FILES = {
     "Parity (test)": "results/gbr/parity_test.png",
     "Residuals histogram (test)": "results/gbr/residuals_hist_test.png",
     "Residuals vs predicted (test)": "results/gbr/residuals_vs_pred_test.png",
+}
+
+EDA_HTML_FILES = {
+    "Price distribution": "results/eda/price_dist.html",
+    "Year histogram": "results/eda/year_hist.html",
+    "Mileage (odometer) distribution": "results/eda/odometer_dist.html",
+    "Price vs year": "results/eda/price_vs_year.html",
+    "Price vs odometer": "results/eda/price_vs_odometer.html",
+    "3D price vs odometer vs year": "results/eda/price_3d_odo_year.html",
+    "Price over time": "results/eda/price_over_time.html",
+    "Correlation heatmap": "results/eda/correlation_heatmap.html",
+    "Mean price by manufacturer": "results/eda/manufacturer_price_mean_hist.html",
+    "Mean price by state": "results/eda/state_price_mean_hist.html",
 }
 
 
@@ -82,13 +95,6 @@ def get_feature_template(df: pd.DataFrame) -> pd.DataFrame:
 
 @st.cache_data(show_spinner=True)
 def load_train_test_metrics(path: str) -> pd.DataFrame | None:
-    if not os.path.exists(path):
-        return None
-    return pd.read_csv(path)
-
-
-@st.cache_data(show_spinner=True)
-def load_cv_logs(path: str) -> pd.DataFrame | None:
     if not os.path.exists(path):
         return None
     return pd.read_csv(path)
@@ -150,82 +156,23 @@ with tab_data:
 
 
 # -------------------------------------------------------------------------
-# 2. EDA plots tab
+# 2. EDA plots tab  (uses precomputed HTML in results/eda/)
 # -------------------------------------------------------------------------
 with tab_eda:
     st.subheader("Exploratory data analysis")
 
-    plot_type = st.selectbox(
-        "Choose a plot",
-        [
-            "Price distribution",
-            "Mileage distribution",
-            "Price vs year",
-            "Price vs mileage",
-            "Price by manufacturer (top 10)",
-        ],
+    choice = st.selectbox(
+        "Choose an EDA visualization",
+        list(EDA_HTML_FILES.keys()),
     )
 
-    if plot_type == "Price distribution":
-        if "price" in df.columns:
-            fig = px.histogram(df, x="price", nbins=60, title="Price distribution")
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.warning("No `price` column found in data.")
-
-    elif plot_type == "Mileage distribution":
-        if "odometer" in df.columns:
-            fig = px.histogram(df, x="odometer", nbins=60, title="Mileage distribution")
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.warning("No `odometer` column found in data.")
-
-    elif plot_type == "Price vs year":
-        if {"price", "year"}.issubset(df.columns):
-            fig = px.scatter(
-                df,
-                x="year",
-                y="price",
-                opacity=0.4,
-                title="Price vs year",
-                hover_data=[
-                    c for c in ["manufacturer", "model", "odometer"] if c in df.columns
-                ],
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.warning("Need both `price` and `year` columns for this plot.")
-
-    elif plot_type == "Price vs mileage":
-        if {"price", "odometer"}.issubset(df.columns):
-            fig = px.scatter(
-                df,
-                x="odometer",
-                y="price",
-                opacity=0.4,
-                title="Price vs mileage",
-                hover_data=[
-                    c for c in ["manufacturer", "model", "year"] if c in df.columns
-                ],
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.warning("Need both `price` and `odometer` columns for this plot.")
-
-    elif plot_type == "Price by manufacturer (top 10)":
-        if {"manufacturer", "price"}.issubset(df.columns):
-            top_manu = df["manufacturer"].value_counts().head(10).index
-            manu_df = df[df["manufacturer"].isin(top_manu)]
-            fig = px.box(
-                manu_df,
-                x="manufacturer",
-                y="price",
-                title="Price by manufacturer (top 10 by count)",
-            )
-            fig.update_layout(xaxis_tickangle=-45)
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.warning("Need `manufacturer` and `price` columns for this plot.")
+    html_path = EDA_HTML_FILES[choice]
+    if os.path.exists(html_path):
+        with open(html_path, "r", encoding="utf-8") as f:
+            html_str = f.read()
+        components.html(html_str, height=700, scrolling=True)
+    else:
+        st.warning(f"EDA HTML file not found at `{html_path}`.")
 
 
 # -------------------------------------------------------------------------
@@ -249,30 +196,11 @@ with tab_metrics:
         else:
             st.dataframe(tt_df, use_container_width=True)
 
-        # --- CV logs summary ---
-        st.markdown("### Cross-validation scores (GBR)")
-        cv_df = load_cv_logs(CV_LOGS_CSV)
-        if cv_df is None:
-            st.info(f"No CV log found at `{CV_LOGS_CSV}`.")
-        else:
-            # Filter just GBR rows (in case other models were ever logged)
-            cv_gbr = cv_df[cv_df["model"] == "gbr"] if "model" in cv_df.columns else cv_df
-            if not cv_gbr.empty and "cv_score" in cv_gbr.columns:
-                cv_mean = cv_gbr["cv_score"].mean()
-                cv_std = cv_gbr["cv_score"].std()
-                st.write(
-                    f"**CV metric ({len(cv_gbr)} folds):** "
-                    f"mean = {cv_mean:.4f}, std = {cv_std:.4f}"
-                )
-                st.dataframe(cv_gbr, use_container_width=True)
-            else:
-                st.info("No `cv_score` column found in CV log.")
-
         # --- Feature importances ---
         st.markdown("### Feature importances (from GBR)")
         fi_df = load_feature_importances(FI_CSV)
         if fi_df is None:
-            st.info(f"No feature_importances.csv found at `{FI_CSV}`.")
+            st.info(f"No `feature_importances.csv` found at `{FI_CSV}`.")
         else:
             st.dataframe(fi_df.head(30), use_container_width=True)
             fig = px.bar(
@@ -284,7 +212,7 @@ with tab_metrics:
             fig.update_layout(xaxis_tickangle=-60)
             st.plotly_chart(fig, use_container_width=True)
 
-        # --- Plots ---
+        # --- Diagnostic plots ---
         st.markdown("### Diagnostic plots")
         for label, rel_path in PLOT_FILES.items():
             if os.path.exists(rel_path):
@@ -293,14 +221,17 @@ with tab_metrics:
             else:
                 st.caption(f"Plot not found: `{rel_path}`")
 
-        # --- Hyperparameters ---
+        # --- Hyperparameters (table) ---
         st.markdown("### GBR hyperparameters")
         try:
             est = model.named_steps.get("est", model)
         except AttributeError:
             est = model
         params = est.get_params()
-        st.json(params)
+        params_df = pd.DataFrame(
+            {"parameter": list(params.keys()), "value": [str(v) for v in params.values()]}
+        )
+        st.dataframe(params_df, use_container_width=True)
 
 
 # -------------------------------------------------------------------------
