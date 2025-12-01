@@ -196,22 +196,6 @@ with tab_metrics:
         else:
             st.dataframe(tt_df, use_container_width=True)
 
-        # --- Feature importances ---
-        st.markdown("### Feature importances (from GBR)")
-        fi_df = load_feature_importances(FI_CSV)
-        if fi_df is None:
-            st.info(f"No `feature_importances.csv` found at `{FI_CSV}`.")
-        else:
-            st.dataframe(fi_df.head(30), use_container_width=True)
-            fig = px.bar(
-                fi_df.head(30),
-                x="feature",
-                y="importance",
-                title="Top 30 features by importance",
-            )
-            fig.update_layout(xaxis_tickangle=-60)
-            st.plotly_chart(fig, use_container_width=True)
-
         # --- Diagnostic plots ---
         st.markdown("### Diagnostic plots")
         for label, rel_path in PLOT_FILES.items():
