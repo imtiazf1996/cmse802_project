@@ -342,15 +342,17 @@ with tab_predict:
                 row.loc[0, "model"] = model_in
 
             # 5) Predict
+            # 5) Predict
             y_pred = float(model.predict(row)[0])
             low = max(0.0, y_pred - 500.0)
             high = max(0.0, y_pred + 500.0)
-
-            st.success(f"Estimated price: **${y_pred:,.0f}**")
-            st.info(
-                f"Approximate range: **${low:,.0f} – ${high:,.0f}** "
-                "(±$500, similar to KBB-style estimates)."
+            
+            # Show only the range as the main result
+            st.success(
+                f"Estimated price range: **${low:,.0f} – ${high:,.0f}** "
             )
+    
+            # Keep the reliability note below
             st.caption(
                 "This estimate assumes patterns similar to the training data. "
                 "Unusual combinations (e.g., very old car with ultra-low mileage) "
