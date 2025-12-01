@@ -31,8 +31,7 @@ machine-learning pipeline for predicting used car prices from a Craigslist datas
 - Explore the cleaned dataset  
 - Interactive EDA visualizations  
 - Gradient Boosting Regressor performance overview  
-- Live price prediction with a ±$500 range (KBB-style)
-
+- GridSearch for hyperparameters was done, and the best model (Currently) is used
 **GitHub repository:**  
 [https://github.com/your-username/cmse802_project](https://github.com/your-username/cmse802_project)
 
