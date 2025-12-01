@@ -1,57 +1,126 @@
+
 # cmse802_project
 ## Overview
-This project predicts used car prices from features such as make, model, year, mileage, and condition.  
-The goal is to apply computational modeling methods from CMSE 802, including data preprocessing, numerical modeling, supervised machine learning, unit testing, and reproducible command-line workflows.  
+This project builds a full, reproducible machine-learning pipeline to predict used-car prices from the Craigslist vehicles dataset.
+It showcases:
 
-## Objectives
-- Clean and preprocess a car dataset (handle missing values, encode categorical features).  
-- Implement a baseline linear regression model for price prediction.  
-- Train advanced supervised ML models (Random Forest, Gradient Boosting) and compare performance.  
-- Create interactive visualizations (Plotly) to show price depreciation vs. year and mileage.  
-- Ensure reproducibility with GitHub, CLI workflows, and testing.
-## Folder Structure
-```
+- Automated data cleaning
+- Unified feature engineering
+- Modern EDA with Plotly
+- A modular src/ architecture
+- GridSearch-tuned Gradient Boosting Regressor (GBR)
+- Reproducible command-line workflow
+- Organized metrics, plots, and artifacts in `results/`
 
+This is the final, simplified, optimized version of the project (GBR-only).
+
+## Final Workflow Summary
+The entire pipeline is executed with:
+
+python -m src.run_experiment
+
+The script performs:
+
+1. Load raw CSV
+2. Clean dataset
+3. Feature-engineering / preprocessing
+4. Automated EDA
+5. Train/test split
+6. GridSearchCV hyperparameter tuning
+7. Train GradientBoostingRegressor
+8. Export:
+   - Feature importances
+   - Parity & residual plots
+   - Train/test metrics
+   - Cross-validation logs
+   - Best model (joblib)
+9. 
+Older features (multi-model training, randomized search, JSON logs, Streamlit deployment) were intentionally removed.
+
+## Folder Structure (Final)
 cmse802_project/
-│
-├── src/               # Core Python scripts
-│   ├── data_clean.py
-│   ├── eda.py
-│   ├── train_regress.py
-│   ├── train_ml.py
-│   └── evaluate.py
-│
-├── notebooks/         # Jupyter notebooks for analysis & visualization
-│   └── demo.ipynb
-│
-├── data/              # Input data (large CSVs kept local/ignored)
-│
-├── tests/             # Unit tests (structure present)
-│
-├── results/           # Generated outputs (plots, metrics, model files)
-│
-├── docs/              # Documentation
-│
-├── app.py             # Streamlit EDA app
-├── requirements.txt   # Dependencies
-└── README.md
+    src/
+        data_clean.py
+        features.py
+        eda.py
+        preprocess.py
+        registry.py
+        plots.py
+        run_experiment.py
+        __init__.py
+    results/
+        gbr/
+            best_model.joblib
+            feature_importances.csv
+            train_test_metrics.csv
+            parity_train.png
+            parity_test.png
+            residuals_hist_test.png
+            residuals_vs_pred_test.png
+        all_cv_runs.csv
+        eda/
+            distributions_*.html
+            correlation_heatmap.html
+            trends_*.html
+    notebooks/demo.ipynb
+    data/
+    tests/
+    app.py
+    requirements.txt
+    README.md
 
-```
-```
-    A[Raw Data (vehicles.csv)] --> B[data_clean.py]
-    B --> C[Cleaned Data]
-    C --> D[train_regress.py]
-    C --> E[train_ml.py]
-    D --> F[Baseline Model Outputs]
-    E --> F
-    F --> G[evaluate.py]
-    G --> H[results/ (metrics, plots, models)]
-    H --> I[notebooks/demo.ipynb]
-    H --> J[app.py (Streamlit EDA)]
-Scripts can be run individually
+## Features Removed (Earlier Versions)
+- RandomForest, SVR, Linear, MLP models
+- RandomizedSearch → replaced with GridSearchCV
+- Leaderboards & multi-model comparison
+- JSON metric files
+- Log-price model variants
+- Old scripts (`train_ml.py`, `train_regress.py`, `evaluate.py`)
+- Streamlit deployment as a requirement
 
-python src/data_clean.py<br>
-python src/eda.py<br>
-python src/train_regress.py<br>
-python src/train_ml.py<br>
-python src/evaluate.py
+## How to Run
+1. pip install -r requirements.txt
+2. python -m src.run_experiment
+
+Optional flags:
+--use_pca
+--pca_components N
+--use_log_price
+--test_size 0.2
+--random_state 42
+--results_dir results
+
+## Outputs
+results/
+    all_cv_runs.csv
+    eda/*.html
+    gbr/
+        best_model.joblib
+        feature_importances.csv
+        train_test_metrics.csv
+        parity_train.png
+        parity_test.png
+        residuals_hist_test.png
+        residuals_vs_pred_test.png
+
+## Why Gradient Boosting Only?
+GBR consistently gave:
+- Highest R²
+- Lowest MAE & RMSE
+- Most stable generalization
+- Clean feature importances
+- Strong performance on full dataset
+
+## Summary
+A clean, production-style ML pipeline with:
+- Automated EDA
+- Structured preprocessing
+- Tuned GBR model
+- Reproducible CLI execution
+- Organized metrics, plots, artifacts
+- Professional file hierarchy
+- Streamlit app connected to use the model in a user friendly way.
+### CHATGPT 5.1 was used in various parts of the project to make it easier to modify and understand
+
+To use Streamlit app
+## https://cmse802project-n3ecnyfnkczizedjswnvcj.streamlit.app/

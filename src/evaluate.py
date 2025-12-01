@@ -7,16 +7,20 @@ import pandas as pd
 evaluate.py
 -----------
 Aggregate and compare model performance metrics (new pipeline version).
+
+For the final project, if you only keep GradientBoostingRegressor,
+this will still work and just produce a single-row summary for 'gbr'.
 """
 
 def collect_model_metrics(results_dir: Path) -> pd.DataFrame:
     """
     Walk through results_dir, find per-model JSONs, and assemble a summary DataFrame.
+    Expects per-model folders like: results/gbr/test_metrics.json, cv_summary.json
     """
     print(f"[evaluate.collect] Scanning results directory: {results_dir}")
     rows = []
 
-    # Iterate through model subdirectories
+    # Iterate through model subdirectories (e.g. gbr/, rf/, etc.)
     for sub in results_dir.iterdir():
         if not sub.is_dir():
             continue
@@ -36,7 +40,7 @@ def collect_model_metrics(results_dir: Path) -> pd.DataFrame:
         with open(test_metrics_path, "r") as f:
             test = json.load(f)
 
-        # Try loading CV summary
+        # Try loading CV summary (optional)
         cv_mean = cv_std = scoring = None
 
         if cv_summary_path.exists():
@@ -67,7 +71,7 @@ def collect_model_metrics(results_dir: Path) -> pd.DataFrame:
 
     df = pd.DataFrame(rows)
 
-    # Sort by RMSE if available
+    # Sort by RMSE if available (for regression)
     if "test_RMSE" in df.columns and df["test_RMSE"].notna().any():
         print("[evaluate.collect] Sorting models by test_RMSE...")
         df = df.sort_values(by="test_RMSE", ascending=True)

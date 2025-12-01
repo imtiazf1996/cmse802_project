@@ -10,6 +10,7 @@ import joblib
 from src.data_clean import load_data, clean_data
 from src.features import assemble_feature_frame
 
+<<<<<<< HEAD
 # -----------------------------------------------------------------------------
 # Page config
 # -----------------------------------------------------------------------------
@@ -18,6 +19,11 @@ st.set_page_config(
     page_icon="🚗",
     layout="wide",
 )
+=======
+st.set_page_config(page_title="Used Car Price EDA", page_icon="🚗", layout="wide")
+st.title("Used Car Price — EDA")
+#st.caption("Dataset: Kaggle Craigslist Cars & Trucks (Austin Reese). Cleaned per project rules.")
+>>>>>>> 461220f (Final project with streamlit and using GBR with the best hyperparameter after grid search)
 
 st.title("🚗 Used Car Price — EDA & Gradient Boosting Prediction")
 
