@@ -15,7 +15,7 @@ from src.features import assemble_feature_frame
 # Page config
 # -------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Used Car Price — EDA & Prediction",
+    page_title="Used Car Price — EDA & Prediction By FAWAZ IMTIAZ",
     page_icon="🚗",
     layout="wide",
 )
@@ -33,9 +33,9 @@ machine-learning pipeline for predicting used car prices from a Craigslist datas
 - Gradient Boosting Regressor performance overview  
 - GridSearch for hyperparameters was done, and the best model (Currently) is used
 **GitHub repository:**  
-[https://github.com/your-username/cmse802_project](https://github.com/your-username/cmse802_project)
+[https://github.com/your-username/cmse802_project](https://github.com/imtiazf1996/cmse802_project.git)
 
-**Contact:** _your.email@domain.com_ (update this in `app.py`)
+**Contact:** _imtiazf1@msu.edu_
 """
 )
 
