@@ -20,7 +20,7 @@ st.set_page_config(
     layout="wide",
 )
 
-st.title("🚗 Used Car Price — EDA & Gradient Boosting Prediction")
+st.title("🚗 Used Car Price — EDA & Gradient Boosting Prediction by FAWAZ IMTIAZ")
 
 st.markdown(
     """
