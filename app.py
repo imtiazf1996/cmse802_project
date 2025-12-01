@@ -1,6 +1,6 @@
 # app.py
 import os
-import json
+from pathlib import Path
 
 import pandas as pd
 import streamlit as st
@@ -10,32 +10,55 @@ import joblib
 from src.data_clean import load_data, clean_data
 from src.features import assemble_feature_frame
 
-<<<<<<< HEAD
-# -----------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 # Page config
-# -----------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 st.set_page_config(
     page_title="Used Car Price — EDA & Prediction",
     page_icon="🚗",
     layout="wide",
 )
-=======
-st.set_page_config(page_title="Used Car Price EDA", page_icon="🚗", layout="wide")
-st.title("Used Car Price — EDA")
-#st.caption("Dataset: Kaggle Craigslist Cars & Trucks (Austin Reese). Cleaned per project rules.")
->>>>>>> 461220f (Final project with streamlit and using GBR with the best hyperparameter after grid search)
 
 st.title("🚗 Used Car Price — EDA & Gradient Boosting Prediction")
 
+st.markdown(
+    """
+This app is part of the **CMSE 802** final project and demonstrates a complete
+machine-learning pipeline for predicting used car prices from a Craigslist dataset.
 
-# -----------------------------------------------------------------------------
-# Data + model loading helpers
-# -----------------------------------------------------------------------------
+**Features:**
+- Explore the cleaned dataset  
+- Interactive EDA visualizations  
+- Gradient Boosting Regressor performance overview  
+- Live price prediction with a ±$500 range (KBB-style)
+
+**GitHub repository:**  
+[https://github.com/your-username/cmse802_project](https://github.com/your-username/cmse802_project)
+
+**Contact:** _your.email@domain.com_ (update this in `app.py`)
+"""
+)
+
+# -------------------------------------------------------------------------
+# Paths
+# -------------------------------------------------------------------------
 DATA_PATH = "vehicles.csv"
 MODEL_PATH = "results/gbr/best_model.joblib"
-TEST_METRICS_PATH = "results/gbr/test_metrics.json"
+TRAIN_TEST_METRICS_CSV = "results/gbr/train_test_metrics.csv"
+CV_LOGS_CSV = "results/all_cv_runs.csv"
+FI_CSV = "results/gbr/feature_importances.csv"
+
+PLOT_FILES = {
+    "Parity (train)": "results/gbr/parity_train.png",
+    "Parity (test)": "results/gbr/parity_test.png",
+    "Residuals histogram (test)": "results/gbr/residuals_hist_test.png",
+    "Residuals vs predicted (test)": "results/gbr/residuals_vs_pred_test.png",
+}
 
 
+# -------------------------------------------------------------------------
+# Cached loaders
+# -------------------------------------------------------------------------
 @st.cache_data(show_spinner=True)
 def get_clean_data(path: str) -> pd.DataFrame:
     raw = load_data(path)
@@ -48,7 +71,8 @@ def get_model(path: str):
     if not os.path.exists(path):
         return None
     return joblib.load(path)
-    
+
+
 @st.cache_data(show_spinner=True)
 def get_feature_template(df: pd.DataFrame) -> pd.DataFrame:
     """Build the full engineered feature matrix once, for use as a template."""
@@ -57,16 +81,29 @@ def get_feature_template(df: pd.DataFrame) -> pd.DataFrame:
 
 
 @st.cache_data(show_spinner=True)
-def get_test_metrics(path: str):
+def load_train_test_metrics(path: str) -> pd.DataFrame | None:
     if not os.path.exists(path):
         return None
-    with open(path, "r") as f:
-        return json.load(f)
+    return pd.read_csv(path)
 
 
-# -----------------------------------------------------------------------------
+@st.cache_data(show_spinner=True)
+def load_cv_logs(path: str) -> pd.DataFrame | None:
+    if not os.path.exists(path):
+        return None
+    return pd.read_csv(path)
+
+
+@st.cache_data(show_spinner=True)
+def load_feature_importances(path: str) -> pd.DataFrame | None:
+    if not os.path.exists(path):
+        return None
+    return pd.read_csv(path)
+
+
+# -------------------------------------------------------------------------
 # Load data
-# -----------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 if not os.path.exists(DATA_PATH):
     st.error(f"Could not find `{DATA_PATH}` in the repo. Please add it.")
     st.stop()
@@ -76,43 +113,47 @@ df = get_clean_data(DATA_PATH)
 if df.empty:
     st.error("Cleaned dataset is empty after processing. Check cleaning rules.")
     st.stop()
+
+# Not strictly needed for prediction anymore, but useful for debugging
 X_template = get_feature_template(df)
 
-# Quick info
-st.write(f"Cleaned dataset loaded with **{len(df):,} rows** and **{df.shape[1]} columns**.")
-
-# -----------------------------------------------------------------------------
-# Tabs
-# -----------------------------------------------------------------------------
-tab_data, tab_eda, tab_metrics, tab_predict = st.tabs(
-    ["Dataset", "EDA plots", "Model performance", "Price prediction"]
+st.write(
+    f"Cleaned dataset loaded with **{len(df):,} rows** and **{df.shape[1]} columns**."
 )
 
-# -----------------------------------------------------------------------------
-# 1. Dataset tab
-# -----------------------------------------------------------------------------
-with tab_data:
-    st.subheader("Cleaned dataset preview")
+# -------------------------------------------------------------------------
+# Tabs
+# -------------------------------------------------------------------------
+tab_data, tab_eda, tab_metrics, tab_predict = st.tabs(
+    ["Dataset / Intro", "EDA plots", "GBR performance", "Price prediction"]
+)
 
-    if st.button("View cleaned data"):
+# -------------------------------------------------------------------------
+# 1. Dataset / Intro tab
+# -------------------------------------------------------------------------
+with tab_data:
+    st.subheader("Dataset overview")
+
+    if st.checkbox("Show cleaned data preview"):
         st.dataframe(df.head(100), use_container_width=True)
         st.caption("Showing first 100 rows of the cleaned dataset.")
-    else:
-        st.info("Click **View cleaned data** to show a preview.")
 
-    st.markdown("**Basic stats (price, year, mileage):**")
+    st.markdown("### Basic statistics (price, year, mileage)")
     cols = [c for c in ["price", "year", "odometer"] if c in df.columns]
     if cols:
         st.write(df[cols].describe())
     else:
         st.info("No `price`, `year`, or `odometer` columns found.")
 
+    st.markdown("### Column summary")
+    st.write(pd.DataFrame({"column": df.columns, "dtype": df.dtypes.astype(str)}))
 
-# -----------------------------------------------------------------------------
+
+# -------------------------------------------------------------------------
 # 2. EDA plots tab
-# -----------------------------------------------------------------------------
+# -------------------------------------------------------------------------
 with tab_eda:
-    st.subheader("Exploratory plots")
+    st.subheader("Exploratory data analysis")
 
     plot_type = st.selectbox(
         "Choose a plot",
@@ -147,7 +188,9 @@ with tab_eda:
                 y="price",
                 opacity=0.4,
                 title="Price vs year",
-                hover_data=[c for c in ["manufacturer", "model", "odometer"] if c in df.columns],
+                hover_data=[
+                    c for c in ["manufacturer", "model", "odometer"] if c in df.columns
+                ],
             )
             st.plotly_chart(fig, use_container_width=True)
         else:
@@ -161,7 +204,9 @@ with tab_eda:
                 y="price",
                 opacity=0.4,
                 title="Price vs mileage",
-                hover_data=[c for c in ["manufacturer", "model", "year"] if c in df.columns],
+                hover_data=[
+                    c for c in ["manufacturer", "model", "year"] if c in df.columns
+                ],
             )
             st.plotly_chart(fig, use_container_width=True)
         else:
@@ -183,46 +228,94 @@ with tab_eda:
             st.warning("Need `manufacturer` and `price` columns for this plot.")
 
 
-# -----------------------------------------------------------------------------
-# 3. Model performance tab
-# -----------------------------------------------------------------------------
+# -------------------------------------------------------------------------
+# 3. GBR performance tab
+# -------------------------------------------------------------------------
 with tab_metrics:
-    st.subheader("Model performance (GBR)")
-
-    metrics = get_test_metrics(TEST_METRICS_PATH)
-    if metrics is None:
-        st.warning(
-            f"Could not find test metrics file at `{TEST_METRICS_PATH}`.\n"
-            "Save your GBR evaluation metrics there as JSON to see them here."
-        )
-    else:
-        st.markdown("**Raw metrics (from JSON):**")
-        st.json(metrics)
-
-        # Try to plot all numeric metrics as a simple bar chart
-        num_items = {k: v for k, v in metrics.items() if isinstance(v, (int, float))}
-        if num_items:
-            mdf = pd.DataFrame(
-                {"metric": list(num_items.keys()), "value": list(num_items.values())}
-            )
-            fig = px.bar(mdf, x="metric", y="value", title="Numeric metrics")
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("No numeric metrics found to plot.")
-# -----------------------------------------------------------------------------
-# 4. Price prediction tab
-# -----------------------------------------------------------------------------
-with tab_predict:
-    st.subheader("Predict price with Gradient Boosting Regressor")
+    st.subheader("Gradient Boosting Regressor performance")
 
     model = get_model(MODEL_PATH)
     if model is None:
         st.warning(
             f"Could not load model from `{MODEL_PATH}`.\n"
-            "Train your GBR model and save it there as a joblib file."
+            "Run `python -m src.run_experiment --input vehicles.csv` first."
         )
     else:
-        # All manufacturers available in dataset
+        # --- Train/Test metrics table ---
+        st.markdown("### Train/Test metrics")
+        tt_df = load_train_test_metrics(TRAIN_TEST_METRICS_CSV)
+        if tt_df is None:
+            st.info(f"No `train_test_metrics.csv` found at `{TRAIN_TEST_METRICS_CSV}`.")
+        else:
+            st.dataframe(tt_df, use_container_width=True)
+
+        # --- CV logs summary ---
+        st.markdown("### Cross-validation scores (GBR)")
+        cv_df = load_cv_logs(CV_LOGS_CSV)
+        if cv_df is None:
+            st.info(f"No CV log found at `{CV_LOGS_CSV}`.")
+        else:
+            # Filter just GBR rows (in case other models were ever logged)
+            cv_gbr = cv_df[cv_df["model"] == "gbr"] if "model" in cv_df.columns else cv_df
+            if not cv_gbr.empty and "cv_score" in cv_gbr.columns:
+                cv_mean = cv_gbr["cv_score"].mean()
+                cv_std = cv_gbr["cv_score"].std()
+                st.write(
+                    f"**CV metric ({len(cv_gbr)} folds):** "
+                    f"mean = {cv_mean:.4f}, std = {cv_std:.4f}"
+                )
+                st.dataframe(cv_gbr, use_container_width=True)
+            else:
+                st.info("No `cv_score` column found in CV log.")
+
+        # --- Feature importances ---
+        st.markdown("### Feature importances (from GBR)")
+        fi_df = load_feature_importances(FI_CSV)
+        if fi_df is None:
+            st.info(f"No feature_importances.csv found at `{FI_CSV}`.")
+        else:
+            st.dataframe(fi_df.head(30), use_container_width=True)
+            fig = px.bar(
+                fi_df.head(30),
+                x="feature",
+                y="importance",
+                title="Top 30 features by importance",
+            )
+            fig.update_layout(xaxis_tickangle=-60)
+            st.plotly_chart(fig, use_container_width=True)
+
+        # --- Plots ---
+        st.markdown("### Diagnostic plots")
+        for label, rel_path in PLOT_FILES.items():
+            if os.path.exists(rel_path):
+                st.markdown(f"**{label}**")
+                st.image(rel_path, use_column_width=True)
+            else:
+                st.caption(f"Plot not found: `{rel_path}`")
+
+        # --- Hyperparameters ---
+        st.markdown("### GBR hyperparameters")
+        try:
+            est = model.named_steps.get("est", model)
+        except AttributeError:
+            est = model
+        params = est.get_params()
+        st.json(params)
+
+
+# -------------------------------------------------------------------------
+# 4. Price prediction tab
+# -------------------------------------------------------------------------
+with tab_predict:
+    st.subheader("Live price prediction with GBR")
+
+    model = get_model(MODEL_PATH)
+    if model is None:
+        st.warning(
+            f"Could not load model from `{MODEL_PATH}`.\n"
+            "Run `python -m src.run_experiment --input vehicles.csv` to train & save the model."
+        )
+    else:
         manu_list = (
             sorted(df["manufacturer"].dropna().unique())
             if "manufacturer" in df.columns
@@ -242,27 +335,27 @@ with tab_predict:
                 "Mileage (mi)",
                 min_value=0,
                 max_value=500_000,
-                value=int(df["odometer"].median()) if "odometer" in df.columns else 80_000,
+                value=int(df["odometer"].median())
+                if "odometer" in df.columns
+                else 80_000,
                 step=1_000,
             )
 
         with col2:
-            # ---- Manufacturer ----
+            # Manufacturer
             if manu_list:
                 manu_in = st.selectbox("Manufacturer", manu_list)
             else:
                 manu_in = st.text_input("Manufacturer", "toyota")
 
-            # ---- Model options depend on manufacturer ----
+            # Model list conditioned on manufacturer
             if (
                 "manufacturer" in df.columns
                 and "model" in df.columns
                 and manu_list
             ):
                 mask = df["manufacturer"].eq(manu_in)
-                models_for_manu = sorted(
-                    df.loc[mask, "model"].dropna().unique()
-                )
+                models_for_manu = sorted(df.loc[mask, "model"].dropna().unique())
             else:
                 models_for_manu = (
                     sorted(df["model"].dropna().unique())
@@ -275,7 +368,6 @@ with tab_predict:
             else:
                 model_in = st.text_input("Model", "corolla")
 
-        # ----------------- PREDICT BUTTON -----------------
         if st.button("Predict price"):
             # 1) What columns does the model expect?
             try:
@@ -287,18 +379,16 @@ with tab_predict:
                 )
                 st.stop()
 
-            # 2) Build a one-row DataFrame with exactly those columns
+            # 2) Build one-row DataFrame with those columns
             row = pd.DataFrame(index=[0], columns=required_cols)
 
-            # 3) Fill with default values from your cleaned dataset
+            # 3) Fill defaults from dataset
             for col in required_cols:
                 if col in df.columns:
                     series = df[col]
                     if pd.api.types.is_numeric_dtype(series):
-                        # Use median for numeric columns
                         row.loc[0, col] = series.median()
                     else:
-                        # Use mode (most frequent) for categorical columns
                         mode_vals = series.mode()
                         if not mode_vals.empty:
                             row.loc[0, col] = mode_vals.iloc[0]
@@ -308,10 +398,9 @@ with tab_predict:
                                 non_null.iloc[0] if not non_null.empty else None
                             )
                 else:
-                    # Column not in df → safe default
                     row.loc[0, col] = 0
 
-            # 4) Overwrite with user inputs where applicable
+            # 4) Override with user inputs
             if "year" in required_cols:
                 row.loc[0, "year"] = year_in
             if "odometer" in required_cols:
@@ -321,13 +410,18 @@ with tab_predict:
             if "model" in required_cols:
                 row.loc[0, "model"] = model_in
 
-            # 5) Predict using the pipeline
-            y_pred = model.predict(row)[0]
+            # 5) Predict
+            y_pred = float(model.predict(row)[0])
+            low = max(0.0, y_pred - 500.0)
+            high = max(0.0, y_pred + 500.0)
 
             st.success(f"Estimated price: **${y_pred:,.0f}**")
-            st.caption(
-                "This estimate is based on the training data distribution. "
-                "Very unusual combinations of features (e.g. extremely low mileage "
-                "for a very old car) may be less reliable."
+            st.info(
+                f"Approximate range: **${low:,.0f} – ${high:,.0f}** "
+                "(±$500, similar to KBB-style estimates)."
             )
-
+            st.caption(
+                "This estimate assumes patterns similar to the training data. "
+                "Unusual combinations (e.g., very old car with ultra-low mileage) "
+                "may be less reliable."
+            )
