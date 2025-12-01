@@ -34,7 +34,7 @@ The script performs:
    - Train/test metrics
    - Cross-validation logs
    - Best model (joblib)
-9. 
+9. Streamlit app developed (Link At the end)
 Older features (multi-model training, randomized search, JSON logs, Streamlit deployment) were intentionally removed.
 
 ## Folder Structure (Final)
