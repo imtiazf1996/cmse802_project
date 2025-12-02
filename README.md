@@ -14,6 +14,7 @@ It showcases:
 
 This is the final, simplified, optimized version of the project (GBR-only).
 
+Other models were used but disabled in the final commit with labeled `_not_used`.
 ## Final Workflow Summary
 The entire pipeline is executed with:
 
@@ -40,13 +41,13 @@ Older features (multi-model training, randomized search, JSON logs, Streamlit de
 ## Folder Structure (Final)
 cmse802_project/
     src/
-        data_clean.py
-        features.py
-        eda.py
-        preprocess.py
-        registry.py
-        plots.py
-        run_experiment.py
+        data_clean.py - cleaning original data with typos, missing rows etc.  
+        features.py - Define feature lists and simple feature engineering so model uses the same inputs.
+        eda.py - Exploratory Data Analysis to see the trend of raw data
+        preprocess.py - Preprocessing tabular data
+        registry.py - Map short names to pipeline builders and tuning spaces
+        plots.py - GBR performance plots
+        run_experiment.py - Main file which calls the main function and runs all other python scripts.
         __init__.py
     results/
         gbr/
@@ -65,6 +66,8 @@ cmse802_project/
     notebooks/demo.ipynb
     data/
     tests/
+        test_smoke.py
+        test_data_clean.py
     app.py
     requirements.txt
     README.md

@@ -1,6 +1,6 @@
 """
 preprocess.py
--------------
+
 GBR-only preprocessing for tabular data.
 """
 from __future__ import annotations
@@ -116,3 +116,4 @@ def build_pipeline_from_df(
         sparse_ohe=sparse_ohe,
         sparse_threshold=sparse_threshold,
     )
+# Part of this was completed with the help of ChatGPT 5.1

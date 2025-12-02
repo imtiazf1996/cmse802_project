@@ -1,6 +1,6 @@
 """
 eda.py
-------
+
 Exploratory Data Analysis (EDA) utilities for the vehicle dataset.
 """
 
@@ -48,15 +48,6 @@ def plot_distributions(df: pd.DataFrame) -> Dict[str, "px.Figure"]:
         figs["year_hist"] = px.histogram(
             df, x="year", nbins=40,
             title="Vehicle year distribution"
-        )
-
-    # Other numeric columns
-    for col in num_cols:
-        if col in {"price", "odometer", "year"}:
-            continue
-        figs[f"{col}_hist"] = px.histogram(
-            df, x=col, nbins=40,
-            title=f"Distribution of {col}"
         )
 
     print(f"plot_distributions: Created figures.")
@@ -127,4 +118,4 @@ def plot_trends(df: pd.DataFrame) -> Dict[str, "px.Figure"]:
 
     return figs
 
-#This function was written by ChatGPT 5.1
+#This function was updated by ChatGPT 5.1 to create  better visualizations

@@ -1,7 +1,7 @@
 """
 features.py
------------
-Define feature lists and simple feature engineering so every model
+
+Define feature lists and simple feature engineering so model
 uses the same inputs.
 """
 
@@ -124,4 +124,4 @@ def assemble_feature_frame(
     print(f"Numeric: {num_cols}")
     print(f"Categorical: {cat_cols}")
     return X, num_cols, cat_cols
-#This function was completed with the help of ChatGPT 5.1
+#Parts of this file was completed with the help of ChatGPT 5.1

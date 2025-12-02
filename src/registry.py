@@ -1,6 +1,6 @@
 """
 registry.py
------------
+
 Model registry: map short names to pipeline builders and tuning spaces.
 - a simple way to ask for models
   by name and receive:

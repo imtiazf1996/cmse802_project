@@ -6,7 +6,7 @@ Defines:
 - build_gb()   -> GradientBoostingRegressor
 - space_gb()   -> hyperparameter search space 
 
-- We use a single, fixed-parameter GradientBoostingRegressor that was tuned
+- I used a single, fixed-parameter GradientBoostingRegressor that was tuned
   in earlier experiments.
 """
 

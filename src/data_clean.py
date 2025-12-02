@@ -19,7 +19,7 @@ from .make_model_sorted.Mercedes import MERCEDES_MODEL_MAP
 
 """
 data_clean.py
--------------
+
 Load and clean raw vehicle data for analysis and modeling.
 """
 
@@ -36,8 +36,15 @@ def simplify_model_name(model):
     """
     if pd.isna(model):
         return None
-    m = re.match(r'^[A-Za-z0-9]+', str(model))
-    return m.group(0).lower() if m else None
+
+    s = str(model).lower()
+    for manu in ["toyota", "ford", "chevrolet", "honda", "nissan", "bmw", "mercedes"]:
+        s = s.replace(manu, " ")
+
+    s = re.sub(r"[^a-z0-9 ]", " ", s)
+
+    tokens = s.strip().split()
+    return tokens[0] if tokens else None
 ## Written by ChatGPT 5.1
 
 def clean_data(df: pd.DataFrame) -> pd.DataFrame:
@@ -167,6 +174,6 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
         df = df.drop_duplicates(subset=safe_for_dedup)
 
     print(f"Dropped NaNs/duplicates: {before:,} → {len(df):,} rows.")
-
+    df=df.head(1000)
     print("Cleaning complete.")
     return df.reset_index(drop=True)
