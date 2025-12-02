@@ -39,6 +39,7 @@ The script performs:
 Older features (multi-model training, randomized search, JSON logs, Streamlit deployment) were intentionally removed.
 
 ## Folder Structure (Final)
+```
 cmse802_project/
     src/
         data_clean.py - cleaning original data with typos, missing rows etc.  
@@ -71,7 +72,7 @@ cmse802_project/
     app.py
     requirements.txt
     README.md
-
+```
 ## Features Removed (Earlier Versions)
 - RandomForest, SVR, Linear, MLP models
 - RandomizedSearch → replaced with GridSearchCV
